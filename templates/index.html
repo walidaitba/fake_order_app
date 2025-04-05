@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Form Filler Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status.running {
+            display: block;
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .status.paused {
+            display: block;
+            background-color: #fcf8e3;
+            color: #8a6d3b;
+        }
+        #pauseButton {
+            background-color: #f0ad4e;
+            display: none;
+        }
+        #pauseButton.paused {
+            background-color: #5cb85c;
+        }
+    </style>
+</head>
+<body>
+    <h2>Form Filler Control Panel</h2>
+    <div class="form-group">
+        <label for="url">Target URL:</label>
+        <input type="text" id="url" name="url" placeholder="Enter the form URL">
+    </div>
+    <div class="form-group">
+        <label for="delay">Delay (seconds):</label>
+        <input type="number" id="delay" name="delay" value="3" min="1">
+    </div>
+    <button onclick="startScript()" id="startButton">Start Filling Forms</button>
+    <button onclick="togglePause()" id="pauseButton">Pause</button>
+    
+    <div id="status" class="status">
+        Status: <span id="statusText">Not running</span><br>
+        Submissions: <span id="submissionCount">0</span>
+    </div>
+
+    <script>
+        let isPaused = false;
+        let isRunning = false;
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseButton = document.getElementById('pauseButton');
+            pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
+            pauseButton.classList.toggle('paused');
+            
+            const status = document.getElementById('status');
+            status.className = 'status ' + (isPaused ? 'paused' : 'running');
+            document.getElementById('statusText').textContent = isPaused ? 'Paused' : 'Running';
+
+            fetch('/pause', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    paused: isPaused
+                })
+            });
+        }
+
+        function startScript() {
+            const url = document.getElementById('url').value;
+            const delay = document.getElementById('delay').value;
+            
+            if (!isRunning) {
+                fetch('/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        url: url,
+                        delay: delay
+                    })
+                }).then(response => response.json())
+                .then(data => {
+                    if (data.status === "started") {
+                        isRunning = true;
+                        document.getElementById('pauseButton').style.display = 'inline-block';
+                        document.getElementById('status').className = 'status running';
+                        document.getElementById('statusText').textContent = 'Running';
+                        startUpdateCounter();
+                    }
+                });
+            }
+        }
+
+        function startUpdateCounter() {
+            setInterval(() => {
+                if (isRunning && !isPaused) {
+                    fetch('/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('submissionCount').textContent = data.count;
+                    });
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
